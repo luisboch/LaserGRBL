@@ -118,8 +118,16 @@ namespace LaserGRBL.SvgConverter
 		/// </summary>
 		public string convertFromFile(string file, GrblCore core, List<SvgColorLayer> layers)
 		{
+			return convertFromXml(ParseSvgFile(file), core, layers);
+		}
+
+		/// <summary>
+		/// Same as convertFromFile, for an svg document already loaded (i.e. converted from dxf)
+		/// </summary>
+		public string convertFromXml(XElement svg, GrblCore core, List<SvgColorLayer> layers)
+		{
 			importInMM = true;
-			svgCode = ParseSvgFile(file);
+			svgCode = svg;
 			loadColorFilter = ColorFilter.All;
 
 			gcode.setup(core);

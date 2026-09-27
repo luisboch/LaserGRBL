@@ -155,6 +155,12 @@ namespace LaserGRBL
 		}
 
 		public void LoadImportedSVG(string filename, bool append, GrblCore core, List<SvgConverter.SvgColorLayer> layers)
+		{
+			LoadImportedSVG(filename, null, append, core, layers);
+		}
+
+		// svg: the document already loaded (i.e. converted from dxf), null to read it from filename
+		public void LoadImportedSVG(string filename, System.Xml.Linq.XElement svg, bool append, GrblCore core, List<SvgConverter.SvgColorLayer> layers)
         {
             SafeLoadFile(() =>
             {
@@ -171,7 +177,7 @@ namespace LaserGRBL
 				converter.GCodeXYFeed = Settings.GetObject("GrayScaleConversion.VectorizeOptions.BorderSpeed", 1000);
 				converter.UseLegacyBezier = !Settings.GetObject($"Vector.UseSmartBezier", true);
 
-				string gcode = converter.convertFromFile(filename, core, layers);
+				string gcode = svg != null ? converter.convertFromXml(svg, core, layers) : converter.convertFromFile(filename, core, layers);
 				string[] lines = gcode.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 				foreach (string l in lines)
 				{

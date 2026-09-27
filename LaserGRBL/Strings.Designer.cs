@@ -1271,5 +1271,32 @@ namespace LaserGRBL {
                 return ResourceManager.GetString("SvgLayerLinesPerMM", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Binary DXF files are not supported. Save the drawing as ASCII DXF and try again..
+        /// </summary>
+        internal static string DxfBinaryNotSupported {
+            get {
+                return ResourceManager.GetString("DxfBinaryNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The DXF file does not contain any supported entity (lines, polylines, circles, arcs, ellipses, splines or blocks)..
+        /// </summary>
+        internal static string DxfNoEntities {
+            get {
+                return ResourceManager.GetString("DxfNoEntities", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error importing DXF file: {0}.
+        /// </summary>
+        internal static string DxfImportError {
+            get {
+                return ResourceManager.GetString("DxfImportError", resourceCulture);
+            }
+        }
     }
 }

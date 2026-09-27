@@ -43,11 +43,17 @@ namespace LaserGRBL.SvgConverter
 		}
 
 		internal static void CreateAndShowDialog(GrblCore core, string filename, bool append)
+		{
+			CreateAndShowDialog(core, filename, null, append);
+		}
+
+		// svg: the document already loaded (i.e. converted from dxf), null to read it from filename
+		internal static void CreateAndShowDialog(GrblCore core, string filename, System.Xml.Linq.XElement svg, bool append)
         {
             List<SvgColorLayer> layers;
             try
             {
-                layers = SvgColorLayer.Scan(GCodeFromSVG.ParseSvgFile(filename));
+                layers = SvgColorLayer.Scan(svg != null ? svg : GCodeFromSVG.ParseSvgFile(filename));
             }
             catch (Exception ex)
             {
@@ -69,7 +75,7 @@ namespace LaserGRBL.SvgConverter
 					foreach (SvgColorLayer layer in layers)
 						layer.SaveSettings();
 
-					core.LoadedFile.LoadImportedSVG(filename, append, core, layers);
+					core.LoadedFile.LoadImportedSVG(filename, svg, append, core, layers);
                 }
             }
         }
