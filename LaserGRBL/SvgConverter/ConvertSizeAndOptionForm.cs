@@ -6,6 +6,7 @@
 
 using LaserGRBL.PSHelper;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using LaserGRBL.RasterConverter;
@@ -25,15 +26,8 @@ namespace LaserGRBL.SvgConverter
 
 		public ComboboxItem[] LaserOptions = new ComboboxItem[] { new ComboboxItem("M3 - Constant Power", "M3"), new ComboboxItem("M4 - Dynamic Power", "M4") };
 
-		public ComboboxItem[] FilterOptions = Array.ConvertAll(
-			(ColorFilter[])Enum.GetValues(typeof(ColorFilter)),
-			ColorFilterToItem
-			);
-
-		private static ComboboxItem ColorFilterToItem(ColorFilter filter)
-		{
-			return new ComboboxItem(filter.ToString(), filter);
-		}
+		private List<SvgColorLayer> mLayers;
+		private DataGridView DgvLayers;
 		public class ComboboxItem
 		{
 			public string Text { get; set; }
@@ -50,7 +44,18 @@ namespace LaserGRBL.SvgConverter
 
 		internal static void CreateAndShowDialog(GrblCore core, string filename, bool append)
         {
-            using (SvgToGCodeForm f = new SvgToGCodeForm(core, filename, append))
+            List<SvgColorLayer> layers;
+            try
+            {
+                layers = SvgColorLayer.Scan(GCodeFromSVG.ParseSvgFile(filename));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("SvgColorLayer", ex);
+                layers = new List<SvgColorLayer>();
+            }
+
+            using (SvgToGCodeForm f = new SvgToGCodeForm(core, layers))
             {
                 f.ShowDialogForm();
                 if (f.DialogResult == DialogResult.OK)
@@ -60,14 +65,16 @@ namespace LaserGRBL.SvgConverter
 					Settings.SetObject("GrayScaleConversion.Gcode.LaserOptions.PowerMin", f.IIMinPower.CurrentValue);
 					Settings.SetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOn", (f.CBLaserON.SelectedItem as ComboboxItem).Value);
 
-					var selectedFilter = (ColorFilter)Enum.Parse(typeof(ColorFilter),(f.CBFilter.SelectedItem as ComboboxItem).Value.ToString());
-					
-					core.LoadedFile.LoadImportedSVG(filename, append, core, selectedFilter);
+					f.DgvLayers.EndEdit();
+					foreach (SvgColorLayer layer in layers)
+						layer.SaveSettings();
+
+					core.LoadedFile.LoadImportedSVG(filename, append, core, layers);
                 }
             }
         }
 
-        private SvgToGCodeForm(GrblCore core, string filename, bool append)
+        private SvgToGCodeForm(GrblCore core, List<SvgColorLayer> layers)
 		{
 			InitializeComponent();
 			ThemeMgr.SetTheme(this);
@@ -78,6 +85,7 @@ namespace LaserGRBL.SvgConverter
             IconsMgr.PrepareButton(BtnPSHelper, "mdi-information-slab-box", new Size(16, 16));
             IconsMgr.PrepareButton(BtnColorFilter, "mdi-information-slab-box", new Size(16, 16));
             mCore = core;
+            mLayers = layers;
 
 			BackColor = ColorScheme.FormBackColor;
 			GbLaser.ForeColor = GbSpeed.ForeColor = ForeColor = ColorScheme.FormForeColor;
@@ -89,11 +97,204 @@ namespace LaserGRBL.SvgConverter
 			CBLaserON.Items.Add(LaserOptions[0]);
 			CBLaserON.Items.Add(LaserOptions[1]);
 
-			foreach (var filterOption in FilterOptions)
+		}
+
+		#region Color layers
+
+		private const int ColColor = 0, ColMode = 1, ColSpeed = 2, ColPower = 3, ColPasses = 4, ColPattern = 5, ColLinesPerMM = 6;
+
+		// the grid replaces the old single color filter, so it is placed in the filter groupbox
+		private void CreateLayersGrid()
+		{
+			tableLayoutPanel2.Visible = false;
+			gbFilter.Text = Strings.SvgLayersTitle;
+			gbFilter.ForeColor = ColorScheme.FormForeColor;
+
+			DgvLayers = new DataGridView();
+			DgvLayers.AllowUserToAddRows = false;
+			DgvLayers.AllowUserToDeleteRows = false;
+			DgvLayers.AllowUserToResizeRows = false;
+			DgvLayers.RowHeadersVisible = false;
+			DgvLayers.MultiSelect = false;
+			DgvLayers.SelectionMode = DataGridViewSelectionMode.CellSelect;
+			DgvLayers.EditMode = DataGridViewEditMode.EditOnEnter;
+			DgvLayers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+			DgvLayers.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+			DgvLayers.BorderStyle = BorderStyle.None;
+			DgvLayers.BackgroundColor = ColorScheme.FormBackColor;
+			DgvLayers.DefaultCellStyle.BackColor = ColorScheme.FormBackColor;
+			DgvLayers.DefaultCellStyle.ForeColor = ColorScheme.FormForeColor;
+			DgvLayers.EnableHeadersVisualStyles = false;
+			DgvLayers.ColumnHeadersDefaultCellStyle.BackColor = ColorScheme.FormButtonsColor;
+			DgvLayers.ColumnHeadersDefaultCellStyle.ForeColor = ColorScheme.FormForeColor;
+
+			DataGridViewTextBoxColumn color = new DataGridViewTextBoxColumn();
+			color.HeaderText = Strings.SvgLayerColor;
+			color.ReadOnly = true;
+			color.FillWeight = 20;
+			color.SortMode = DataGridViewColumnSortMode.NotSortable;
+
+			DataGridViewComboBoxColumn mode = new DataGridViewComboBoxColumn();
+			mode.HeaderText = Strings.SvgLayerMode;
+			mode.DisplayMember = "Text";
+			mode.ValueMember = "Value";
+			mode.DataSource = new ComboboxItem[] {
+				new ComboboxItem(Strings.SvgLayerModeLine, SvgLayerMode.Line),
+				new ComboboxItem(Strings.SvgLayerModeFill, SvgLayerMode.Fill),
+				new ComboboxItem(Strings.SvgLayerModeFillLine, SvgLayerMode.FillAndLine),
+				new ComboboxItem(Strings.SvgLayerModeCut, SvgLayerMode.Cut),
+				new ComboboxItem(Strings.SvgLayerModeIgnore, SvgLayerMode.Ignore) };
+			mode.ValueType = typeof(SvgLayerMode);
+			mode.FlatStyle = FlatStyle.Flat;
+			mode.FillWeight = 40;
+
+			List<ComboboxItem> patterns = new List<ComboboxItem>();
+			foreach (ImageProcessor.Direction direction in Enum.GetValues(typeof(ImageProcessor.Direction)))
+				if (GrblFile.VectorFilling(direction))
+					patterns.Add(new ComboboxItem(GrblCore.TranslateEnum(direction), direction));
+
+			DataGridViewComboBoxColumn pattern = new DataGridViewComboBoxColumn();
+			pattern.HeaderText = Strings.SvgLayerFillPattern;
+			pattern.DisplayMember = "Text";
+			pattern.ValueMember = "Value";
+			pattern.DataSource = patterns.ToArray();
+			pattern.ValueType = typeof(ImageProcessor.Direction);
+			pattern.FlatStyle = FlatStyle.Flat;
+			pattern.FillWeight = 45;
+
+			DataGridViewTextBoxColumn linesPerMM = new DataGridViewTextBoxColumn();
+			linesPerMM.HeaderText = Strings.SvgLayerLinesPerMM;
+			linesPerMM.ValueType = typeof(double);
+			linesPerMM.FillWeight = 20;
+			linesPerMM.SortMode = DataGridViewColumnSortMode.NotSortable;
+			linesPerMM.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+			linesPerMM.DefaultCellStyle.Format = "0.##";
+
+			DgvLayers.Columns.AddRange(new DataGridViewColumn[] {
+				color, mode,
+				CreateIntColumn(Strings.SvgLayerSpeed, 22),
+				CreateIntColumn(Strings.SvgLayerPower, 18),
+				CreateIntColumn(Strings.SvgLayerPasses, 16),
+				pattern, linesPerMM });
+
+			foreach (SvgColorLayer layer in mLayers)
 			{
-				CBFilter.Items.Add(filterOption);
+				if (!layer.LoadSettings())
+				{
+					layer.Speed = IIBorderTracing.CurrentValue;
+					layer.Power = IIMaxPower.CurrentValue;
+				}
+
+				int index = DgvLayers.Rows.Add(null, layer.Mode, layer.Speed, layer.Power, layer.Passes, layer.FillDirection, layer.LinesPerMM);
+				DataGridViewRow row = DgvLayers.Rows[index];
+				row.Tag = layer;
+				row.Cells[ColColor].Style.BackColor = row.Cells[ColColor].Style.SelectionBackColor = layer.DrawingColor;
+				row.Cells[ColColor].ToolTipText = layer.Color + " - " + string.Format(Strings.SvgLayerElements, layer.ElementCount);
+				RefreshFillCells(row);
+			}
+
+			DgvLayers.CellParsing += DgvLayers_CellParsing;
+			DgvLayers.CellValueChanged += DgvLayers_CellValueChanged;
+			DgvLayers.DataError += (sender, e) => { e.ThrowException = false; };
+			DgvLayers.CurrentCellDirtyStateChanged += (sender, e) => { if (DgvLayers.CurrentCell is DataGridViewComboBoxCell) DgvLayers.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+
+			int visibleRows = Math.Max(1, Math.Min(mLayers.Count, 8));
+			DgvLayers.Size = new Size(GbLaser.Width * 5 / 3 /* wider than the other groups: 7 columns */ - gbFilter.Padding.Horizontal - 6, DgvLayers.ColumnHeadersHeight + visibleRows * DgvLayers.RowTemplate.Height + 3);
+			DgvLayers.Location = new Point(gbFilter.DisplayRectangle.Left + 3, gbFilter.DisplayRectangle.Top);
+			gbFilter.Controls.Add(DgvLayers);
+		}
+
+		private static DataGridViewTextBoxColumn CreateIntColumn(string header, float weight)
+		{
+			DataGridViewTextBoxColumn col = new DataGridViewTextBoxColumn();
+			col.HeaderText = header;
+			col.ValueType = typeof(int);
+			col.FillWeight = weight;
+			col.SortMode = DataGridViewColumnSortMode.NotSortable;
+			col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+			return col;
+		}
+
+		// fill pattern and line density are meaningful only for fill modes
+		private void RefreshFillCells(DataGridViewRow row)
+		{
+			bool fill = ((SvgColorLayer)row.Tag).HasFill;
+			foreach (int col in new int[] { ColPattern, ColLinesPerMM })
+			{
+				row.Cells[col].ReadOnly = !fill;
+				row.Cells[col].Style.ForeColor = fill ? ColorScheme.FormForeColor : SystemColors.GrayText;
 			}
 		}
+
+		private int MaxValueForColumn(int column)
+		{
+			switch (column)
+			{
+				case ColSpeed: return (int)GrblCore.Configuration.MaxRateX;
+				case ColPower: return (int)GrblCore.Configuration.MaxPWM;
+				default: return 100;
+			}
+		}
+
+		// clamp numeric input to the allowed range, keep previous value if not a number
+		private void DgvLayers_CellParsing(object sender, DataGridViewCellParsingEventArgs e)
+		{
+			if (e.ColumnIndex == ColLinesPerMM)
+			{
+				double lines;
+				if (double.TryParse(Convert.ToString(e.Value).Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out lines))
+					e.Value = Math.Max(0.5, Math.Min(50, lines));
+				else
+					e.Value = DgvLayers.Rows[e.RowIndex].Cells[e.ColumnIndex].Value;
+
+				e.ParsingApplied = true;
+				return;
+			}
+
+			if (e.ColumnIndex < ColSpeed || e.ColumnIndex > ColPasses)
+				return;
+
+			int value;
+			if (int.TryParse(Convert.ToString(e.Value), out value))
+				e.Value = Math.Max(e.ColumnIndex == ColPower ? 0 : 1, Math.Min(MaxValueForColumn(e.ColumnIndex), value));
+			else
+				e.Value = DgvLayers.Rows[e.RowIndex].Cells[e.ColumnIndex].Value;
+
+			e.ParsingApplied = true;
+		}
+
+		private void DgvLayers_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+		{
+			if (e.RowIndex < 0)
+				return;
+
+			DataGridViewRow row = DgvLayers.Rows[e.RowIndex];
+			SvgColorLayer layer = (SvgColorLayer)row.Tag;
+			object value = row.Cells[e.ColumnIndex].Value;
+
+			switch (e.ColumnIndex)
+			{
+				case ColMode: layer.Mode = (SvgLayerMode)value; RefreshFillCells(row); break;
+				case ColSpeed: layer.Speed = (int)value; break;
+				case ColPower: layer.Power = (int)value; break;
+				case ColPasses: layer.Passes = (int)value; break;
+				case ColPattern: layer.FillDirection = (ImageProcessor.Direction)value; break;
+				case ColLinesPerMM: layer.LinesPerMM = (double)value; break;
+			}
+		}
+
+		// global speed/power act as default: propagate the change to the layers that still use the previous value
+		private void PropagateToLayers(int column, int oldValue, int newValue)
+		{
+			if (DgvLayers == null)
+				return;
+
+			foreach (DataGridViewRow row in DgvLayers.Rows)
+				if (row.Cells[column].Value is int && (int)row.Cells[column].Value == oldValue)
+					row.Cells[column].Value = newValue;
+		}
+
+		#endregion
 
 		private void AssignMinMaxLimit()
         { 
@@ -112,8 +313,6 @@ namespace LaserGRBL.SvgConverter
 			else
 				CBLaserON.SelectedItem = LaserOptions[1];
 
-			CBFilter.SelectedItem = FilterOptions[0];
-
 			string LaserOff = "M5"; //Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.LaserOff", "M5");
 
 			IIMinPower.CurrentValue = Settings.GetObject("GrayScaleConversion.Gcode.LaserOptions.PowerMin", 0);
@@ -123,13 +322,15 @@ namespace LaserGRBL.SvgConverter
 
 			RefreshPerc();
 
+			CreateLayersGrid(); //after speed/power initialization: they are the default for new colors
+
 			ShowDialog(FormsHelper.MainForm);
 		}
 
 
 		void IIBorderTracingCurrentValueChanged(object sender, int OldValue, int NewValue, bool ByUser)
 		{
-			//IP.BorderSpeed = NewValue;
+			PropagateToLayers(ColSpeed, OldValue, NewValue);
 		}
 
 	
@@ -145,6 +346,7 @@ namespace LaserGRBL.SvgConverter
 			if (ByUser && IIMinPower.CurrentValue >= NewValue)
 				IIMinPower.CurrentValue = NewValue - 1;
 
+			PropagateToLayers(ColPower, OldValue, NewValue);
 			RefreshPerc();
 		}
 
