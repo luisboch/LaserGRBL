@@ -492,9 +492,6 @@ Do you want to restart LaserGRBL and switch to software rendering?</value>
   <data name="SvgLayersTitle" xml:space="preserve">
     <value>Color layers</value>
   </data>
-  <data name="SvgLayerColor" xml:space="preserve">
-    <value>Color</value>
-  </data>
   <data name="SvgLayerMode" xml:space="preserve">
     <value>Mode</value>
   </data>
@@ -530,5 +527,20 @@ Do you want to restart LaserGRBL and switch to software rendering?</value>
   </data>
   <data name="SvgLayerLinesPerMM" xml:space="preserve">
     <value>Lines/mm</value>
+  </data>
+  <data name="SvgPreviewLoading" xml:space="preserve">
+    <value>Loading preview...</value>
+  </data>
+  <data name="SvgPreviewError" xml:space="preserve">
+    <value>Preview not available</value>
+  </data>
+  <data name="SvgPreviewHint" xml:space="preserve">
+    <value>Click a shape or a color in the list to configure it</value>
+  </data>
+  <data name="SvgPreviewNavigation" xml:space="preserve">
+    <value>Wheel: zoom · Drag: move · Double click: fit</value>
+  </data>
+  <data name="SvgPreviewFilling" xml:space="preserve">
+    <value>Calculating fill...</value>
   </data>
 </root>

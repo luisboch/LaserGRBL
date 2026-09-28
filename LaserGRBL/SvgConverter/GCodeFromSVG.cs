@@ -118,8 +118,16 @@ namespace LaserGRBL.SvgConverter
 		/// </summary>
 		public string convertFromFile(string file, GrblCore core, List<SvgColorLayer> layers)
 		{
+			return convertFromXml(ParseSvgFile(file), core, layers);
+		}
+
+		/// <summary>
+		/// Same as convertFromFile, for an svg document already loaded
+		/// </summary>
+		public string convertFromXml(XElement svg, GrblCore core, List<SvgColorLayer> layers)
+		{
 			importInMM = true;
-			svgCode = ParseSvgFile(file);
+			svgCode = svg;
 			loadColorFilter = ColorFilter.All;
 
 			gcode.setup(core);
@@ -147,6 +155,27 @@ namespace LaserGRBL.SvgConverter
 
 			gcode.PutFinalCommand(gcodeString);
 			return gcodeString.Replace(',', '.').ToString();
+		}
+
+		/// <summary>
+		/// Return the shapes of each layer as polylines in final coordinates (mm), the same geometry used
+		/// to create the gcode: used by the import dialog preview
+		/// </summary>
+		public Dictionary<string, List<List<Point>>> CaptureLayers(XElement svg, GrblCore core, IEnumerable<SvgColorLayer> layers)
+		{
+			importInMM = true;
+			svgCode = svg;
+			loadColorFilter = ColorFilter.All;
+			gcode.setup(core);
+
+			Dictionary<string, List<List<Point>>> rv = new Dictionary<string, List<List<Point>>>();
+			foreach (SvgColorLayer layer in layers)
+			{
+				currentLayerColor = layer.Color;
+				rv[layer.Color] = CaptureShapes();
+			}
+			currentLayerColor = null;
+			return rv;
 		}
 
 		/// <summary>

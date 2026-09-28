@@ -81,7 +81,7 @@ namespace LaserGRBL.SvgConverter
 		/// Join open paths whose ends touch into longer paths. Files exported from CAD (dxf) often store
 		/// each segment of a shape as a separate path: they must be joined to get the closed shape to fill.
 		/// </summary>
-		private static List<List<Point>> JoinOpenPaths(List<List<Point>> shapes)
+		internal static List<List<Point>> JoinOpenPaths(List<List<Point>> shapes)
 		{
 			List<List<Point>> rv = new List<List<Point>>();
 			List<List<Point>> open = new List<List<Point>>();
