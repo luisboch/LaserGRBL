@@ -528,6 +528,15 @@ Você quer reiniciar o LaserGRBL e alternar para renderização de software?</va
   <data name="SvgLayerLinesPerMM" xml:space="preserve">
     <value>Linhas/mm</value>
   </data>
+  <data name="DxfBinaryNotSupported" xml:space="preserve">
+    <value>Arquivos DXF binários não são suportados. Salve o desenho como DXF ASCII e tente novamente.</value>
+  </data>
+  <data name="DxfNoEntities" xml:space="preserve">
+    <value>O arquivo DXF não contém nenhuma entidade suportada (linhas, polilinhas, círculos, arcos, elipses, splines ou blocos).</value>
+  </data>
+  <data name="DxfImportError" xml:space="preserve">
+    <value>Erro ao importar o arquivo DXF: {0}</value>
+  </data>
   <data name="SvgPreviewLoading" xml:space="preserve">
     <value>Carregando a visualização...</value>
   </data>

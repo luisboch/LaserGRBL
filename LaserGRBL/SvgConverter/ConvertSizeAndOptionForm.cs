@@ -49,7 +49,7 @@ namespace LaserGRBL.SvgConverter
 			CreateAndShowDialog(core, filename, null, append);
 		}
 
-		// source: the file already loaded, null to read the svg from filename
+		// source: the file already loaded (svg or dxf), null to read the svg from filename
 		internal static void CreateAndShowDialog(GrblCore core, string filename, VectorImportSource source, bool append)
         {
             List<SvgColorLayer> layers;

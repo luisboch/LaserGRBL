@@ -159,7 +159,7 @@ namespace LaserGRBL
 			LoadImportedVector(filename, null, append, core, layers);
 		}
 
-		// source: the file already loaded, null to read the svg from filename
+		// source: the file already loaded (svg or dxf), null to read the svg from filename
 		public void LoadImportedVector(string filename, SvgConverter.VectorImportSource source, bool append, GrblCore core, List<SvgConverter.SvgColorLayer> layers)
         {
             SafeLoadFile(() =>
