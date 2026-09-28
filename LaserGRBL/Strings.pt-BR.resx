@@ -492,9 +492,6 @@ Você quer reiniciar o LaserGRBL e alternar para renderização de software?</va
   <data name="SvgLayersTitle" xml:space="preserve">
     <value>Camadas por cor</value>
   </data>
-  <data name="SvgLayerColor" xml:space="preserve">
-    <value>Cor</value>
-  </data>
   <data name="SvgLayerMode" xml:space="preserve">
     <value>Modo</value>
   </data>
@@ -539,5 +536,20 @@ Você quer reiniciar o LaserGRBL e alternar para renderização de software?</va
   </data>
   <data name="DxfImportError" xml:space="preserve">
     <value>Erro ao importar o arquivo DXF: {0}</value>
+  </data>
+  <data name="SvgPreviewLoading" xml:space="preserve">
+    <value>Carregando a visualização...</value>
+  </data>
+  <data name="SvgPreviewError" xml:space="preserve">
+    <value>Visualização indisponível</value>
+  </data>
+  <data name="SvgPreviewHint" xml:space="preserve">
+    <value>Clique numa forma ou numa cor da lista para configurá-la</value>
+  </data>
+  <data name="SvgPreviewNavigation" xml:space="preserve">
+    <value>Roda: zoom · Arrastar: mover · Duplo clique: ajustar</value>
+  </data>
+  <data name="SvgPreviewFilling" xml:space="preserve">
+    <value>Calculando preenchimento...</value>
   </data>
 </root>

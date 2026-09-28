@@ -1156,15 +1156,6 @@ namespace LaserGRBL {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Color.
-        /// </summary>
-        internal static string SvgLayerColor {
-            get {
-                return ResourceManager.GetString("SvgLayerColor", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Mode.
         /// </summary>
         internal static string SvgLayerMode {
@@ -1296,6 +1287,51 @@ namespace LaserGRBL {
         internal static string DxfImportError {
             get {
                 return ResourceManager.GetString("DxfImportError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loading preview....
+        /// </summary>
+        internal static string SvgPreviewLoading {
+            get {
+                return ResourceManager.GetString("SvgPreviewLoading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Preview not available.
+        /// </summary>
+        internal static string SvgPreviewError {
+            get {
+                return ResourceManager.GetString("SvgPreviewError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Click a shape or a color in the list to configure it.
+        /// </summary>
+        internal static string SvgPreviewHint {
+            get {
+                return ResourceManager.GetString("SvgPreviewHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wheel: zoom · Drag: move · Double click: fit.
+        /// </summary>
+        internal static string SvgPreviewNavigation {
+            get {
+                return ResourceManager.GetString("SvgPreviewNavigation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Calculating fill....
+        /// </summary>
+        internal static string SvgPreviewFilling {
+            get {
+                return ResourceManager.GetString("SvgPreviewFilling", resourceCulture);
             }
         }
     }
