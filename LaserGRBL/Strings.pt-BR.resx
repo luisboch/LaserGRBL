@@ -552,4 +552,10 @@ Você quer reiniciar o LaserGRBL e alternar para renderização de software?</va
   <data name="SvgPreviewFilling" xml:space="preserve">
     <value>Calculando preenchimento...</value>
   </data>
+  <data name="SettingsSplineArcTolerance" xml:space="preserve">
+    <value>Splines para arcos, tolerância</value>
+  </data>
+  <data name="SettingsSplineArcToleranceInfo" xml:space="preserve">
+    <value>As curvas dos arquivos DXF (SPLINE) são convertidas em arcos (G2/G3) que ficam dentro desta distância da curva original: G-code menor e movimento mais suave. Use 0 para manter os segmentos retos curtos.</value>
+  </data>
 </root>

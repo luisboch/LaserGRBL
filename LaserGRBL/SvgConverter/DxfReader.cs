@@ -34,11 +34,17 @@ namespace LaserGRBL.SvgConverter
 
 		public static VectorDrawing Read(string filename)
 		{
+			return Read(filename, Settings.GetObject(ArcFitter.ToleranceSetting, ArcFitter.DefaultTolerance));
+		}
+
+		/// <param name="splineTolerance">splines are converted to arcs within this distance (mm), 0 to keep them as short lines</param>
+		public static VectorDrawing Read(string filename, double splineTolerance)
+		{
 			if (IsBinary(filename))
 				throw new DxfImportException(Strings.DxfBinaryNotSupported);
 
 			DxfDocument doc = DxfDocument.Load(File.ReadAllLines(filename));
-			VectorDrawing drawing = new DrawingBuilder(doc).Build();
+			VectorDrawing drawing = new DrawingBuilder(doc, splineTolerance).Build();
 			if (drawing == null)
 				throw new DxfImportException(Strings.DxfNoEntities);
 			return drawing;
@@ -383,9 +389,13 @@ namespace LaserGRBL.SvgConverter
 			// path under construction
 			private VectorPath mPath;
 			private double mTolerance; // arc tolerance in drawing units
+			private double mSplineTolerance; // mm, 0 = splines as lines
 
-			public DrawingBuilder(DxfDocument doc)
-			{ mDoc = doc; }
+			public DrawingBuilder(DxfDocument doc, double splineTolerance)
+			{
+				mDoc = doc;
+				mSplineTolerance = splineTolerance;
+			}
 
 			public VectorDrawing Build()
 			{
@@ -678,8 +688,17 @@ namespace LaserGRBL.SvgConverter
 
 				BeginPath();
 				MoveTo(t, points[0][0], points[0][1]);
-				for (int i = 1; i < points.Count; i++)
-					LineTo(t, points[i][0], points[i][1]);
+				if (mSplineTolerance > 0)
+				{
+					// fitted on the final coordinates: correct also inside scaled or rotated blocks
+					List<Point> drawing = points.Select(q => ToDrawing(t, q[0], q[1])).ToList();
+					mPath.Segments.AddRange(ArcFitter.Fit(drawing, mSplineTolerance));
+				}
+				else
+				{
+					for (int i = 1; i < points.Count; i++)
+						LineTo(t, points[i][0], points[i][1]);
+				}
 				EndPath(color, closed);
 			}
 
