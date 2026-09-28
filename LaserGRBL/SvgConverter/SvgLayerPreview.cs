@@ -12,7 +12,6 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
-using System.Xml.Linq;
 using WPoint = System.Windows.Point;
 
 namespace LaserGRBL.SvgConverter
@@ -131,13 +130,13 @@ namespace LaserGRBL.SvgConverter
 		/// <summary>
 		/// Capture the geometry of every layer in background, then show it
 		/// </summary>
-		public void Load(XElement svg, List<SvgColorLayer> layers, GrblCore core, bool legacyBezier)
+		public void Load(VectorImportSource source, List<SvgColorLayer> layers, GrblCore core)
 		{
 			mViews = null;
 			mError = null;
 			Invalidate();
 
-			if (svg == null) // the file could not be read
+			if (source == null) // the file could not be read
 			{
 				mError = "";
 				mViews = new List<LayerView>();
@@ -149,9 +148,7 @@ namespace LaserGRBL.SvgConverter
 				List<LayerView> views = new List<LayerView>();
 				try
 				{
-					GCodeFromSVG converter = new GCodeFromSVG();
-					converter.UseLegacyBezier = legacyBezier;
-					Dictionary<string, List<List<WPoint>>> shapes = converter.CaptureLayers(svg, core, layers);
+					Dictionary<string, List<List<WPoint>>> shapes = source.CaptureLayers(core, layers);
 					foreach (SvgColorLayer layer in layers)
 						views.Add(CreateView(layer, shapes[layer.Color]));
 				}

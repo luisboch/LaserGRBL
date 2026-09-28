@@ -27,7 +27,7 @@ namespace LaserGRBL.SvgConverter
 		public ComboboxItem[] LaserOptions = new ComboboxItem[] { new ComboboxItem("M3 - Constant Power", "M3"), new ComboboxItem("M4 - Dynamic Power", "M4") };
 
 		private List<SvgColorLayer> mLayers;
-		private System.Xml.Linq.XElement mSvg;
+		private VectorImportSource mSource;
 		private SvgLayerPreview mPreview;
 		private SvgLayerAccordion mAccordion;
 		public class ComboboxItem
@@ -49,15 +49,15 @@ namespace LaserGRBL.SvgConverter
 			CreateAndShowDialog(core, filename, null, append);
 		}
 
-		// svg: the document already loaded (i.e. converted from dxf), null to read it from filename
-		internal static void CreateAndShowDialog(GrblCore core, string filename, System.Xml.Linq.XElement svg, bool append)
+		// source: the file already loaded (svg or dxf), null to read the svg from filename
+		internal static void CreateAndShowDialog(GrblCore core, string filename, VectorImportSource source, bool append)
         {
             List<SvgColorLayer> layers;
             try
             {
-                if (svg == null)
-                    svg = GCodeFromSVG.ParseSvgFile(filename);
-                layers = SvgColorLayer.Scan(svg);
+                if (source == null)
+                    source = new SvgImportSource(GCodeFromSVG.ParseSvgFile(filename));
+                layers = source.ScanLayers();
             }
             catch (Exception ex)
             {
@@ -65,7 +65,7 @@ namespace LaserGRBL.SvgConverter
                 layers = new List<SvgColorLayer>();
             }
 
-            using (SvgToGCodeForm f = new SvgToGCodeForm(core, layers, svg))
+            using (SvgToGCodeForm f = new SvgToGCodeForm(core, layers, source))
             {
                 f.ShowDialogForm();
                 if (f.DialogResult == DialogResult.OK)
@@ -78,12 +78,12 @@ namespace LaserGRBL.SvgConverter
 					foreach (SvgColorLayer layer in layers)
 						layer.SaveSettings();
 
-					core.LoadedFile.LoadImportedSVG(filename, svg, append, core, layers);
+					core.LoadedFile.LoadImportedVector(filename, source, append, core, layers);
                 }
             }
         }
 
-        private SvgToGCodeForm(GrblCore core, List<SvgColorLayer> layers, System.Xml.Linq.XElement svg)
+        private SvgToGCodeForm(GrblCore core, List<SvgColorLayer> layers, VectorImportSource source)
 		{
 			InitializeComponent();
 			ThemeMgr.SetTheme(this);
@@ -95,7 +95,7 @@ namespace LaserGRBL.SvgConverter
             IconsMgr.PrepareButton(BtnColorFilter, "mdi-information-slab-box", new Size(16, 16));
             mCore = core;
             mLayers = layers;
-            mSvg = svg;
+            mSource = source;
 
 			BackColor = ColorScheme.FormBackColor;
 			GbLaser.ForeColor = GbSpeed.ForeColor = ForeColor = ColorScheme.FormForeColor;
@@ -172,7 +172,7 @@ namespace LaserGRBL.SvgConverter
 
 			ResumeLayout(true);
 
-			Shown += delegate { mPreview.Load(mSvg, mLayers, mCore, !Settings.GetObject("Vector.UseSmartBezier", true)); };
+			Shown += delegate { mPreview.Load(mSource, mLayers, mCore); };
 			FormClosing += delegate { SaveWindowSize(); };
 			FormClosed += delegate { Cursor = Cursors.WaitCursor; mPreview.StopWorker(); }; // the conversion starts right after
 		}

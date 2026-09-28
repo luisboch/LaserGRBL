@@ -10,7 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Xml.Linq;
+using Point = System.Windows.Point;
 
 namespace LaserGRBL.SvgConverter
 {
@@ -23,30 +23,25 @@ namespace LaserGRBL.SvgConverter
 	}
 
 	/// <summary>
-	/// Read an ASCII dxf file and convert it to an svg document (size in mm, one stroke color for each dxf color),
-	/// so it can be imported with the svg color layers
+	/// Read an ASCII dxf file as lines and true arcs in mm, one color for each dxf color,
+	/// to be imported with the color layers without intermediate formats
 	/// </summary>
-	public static class DxfToSvg
+	public static class DxfReader
 	{
 		private const int MaxBlockDepth = 32;       // protection against blocks that insert themselves
 		private const double ArcTolerance = 0.02;    // max distance (mm) between an arc and its approximation
 		private const double SplineStep = 0.1;       // length (mm) of the segments used to approximate splines
 
-		public static XElement Convert(string filename)
-		{
-			return XElement.Parse(ConvertToText(filename), LoadOptions.None);
-		}
-
-		public static string ConvertToText(string filename)
+		public static VectorDrawing Read(string filename)
 		{
 			if (IsBinary(filename))
 				throw new DxfImportException(Strings.DxfBinaryNotSupported);
 
 			DxfDocument doc = DxfDocument.Load(File.ReadAllLines(filename));
-			string svg = new SvgBuilder(doc).Build();
-			if (svg == null)
+			VectorDrawing drawing = new DrawingBuilder(doc).Build();
+			if (drawing == null)
 				throw new DxfImportException(Strings.DxfNoEntities);
-			return svg;
+			return drawing;
 		}
 
 		private static bool IsBinary(string filename)
@@ -377,23 +372,22 @@ namespace LaserGRBL.SvgConverter
 			public int Depth;
 		}
 
-		private class SvgBuilder
+		private class DrawingBuilder
 		{
 			private DxfDocument mDoc;
-			private StringBuilder mBody = new StringBuilder();
-			private double mMinX = double.MaxValue, mMinY = double.MaxValue, mMaxX = double.MinValue, mMaxY = double.MinValue;
+			private VectorDrawing mDrawing = new VectorDrawing();
 			private SortedDictionary<string, int> mIgnored = new SortedDictionary<string, int>();
 			private int mHidden;
 			private int mCount;
 
 			// path under construction
-			private StringBuilder mPath;
+			private VectorPath mPath;
 			private double mTolerance; // arc tolerance in drawing units
 
-			public SvgBuilder(DxfDocument doc)
+			public DrawingBuilder(DxfDocument doc)
 			{ mDoc = doc; }
 
-			public string Build()
+			public VectorDrawing Build()
 			{
 				Context ctx = new Context();
 				ctx.Transform = new Transform();
@@ -410,17 +404,11 @@ namespace LaserGRBL.SvgConverter
 					Logger.LogMessage("DxfImport", "Ignored {0} entities on hidden layers", mHidden);
 				Logger.LogMessage("DxfImport", "Imported {0} entities, units {1} ({2} mm)", mCount, mDoc.Units, mDoc.UnitToMM);
 
-				if (mCount == 0 || mMinX > mMaxX)
+				if (mCount == 0)
 					return null;
 
-				// the svg is in drawing units, with Y pointing down: the svg importer flips it back
-				double w = Math.Max(mMaxX - mMinX, 0.001), h = Math.Max(mMaxY - mMinY, 0.001);
-				StringBuilder sb = new StringBuilder();
-				sb.AppendFormat(CultureInfo.InvariantCulture, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{0}mm\" height=\"{1}mm\" viewBox=\"{2} {3} {4} {5}\">\r\n",
-					Num(w * mDoc.UnitToMM), Num(h * mDoc.UnitToMM), Num(mMinX), Num(-mMaxY), Num(w), Num(h));
-				sb.Append(mBody);
-				sb.Append("</svg>\r\n");
-				return sb.ToString();
+				mDrawing.MoveToOrigin();
+				return mDrawing;
 			}
 
 			private void Ignore(string type)
@@ -623,21 +611,10 @@ namespace LaserGRBL.SvgConverter
 			private void DrawCircle(Transform t, double cx, double cy, double r, string color)
 			{
 				if (r <= 0) return;
-				if (t.IsSimilarity)
-				{
-					double[] c = t.Apply(cx, cy);
-					double rw = r * t.Scale;
-					mBody.AppendFormat("<circle cx=\"{0}\" cy=\"{1}\" r=\"{2}\" stroke=\"{3}\" fill=\"none\"/>\r\n", Num(c[0]), Num(-c[1]), Num(rw), color);
-					Extend(c[0] - rw, c[1] - rw);
-					Extend(c[0] + rw, c[1] + rw);
-					mCount++;
-				}
-				else // non uniform scale in a block: it is an ellipse
-				{
-					BeginPath();
-					ArcTo(t, cx, cy, r, 0, 2 * Math.PI, true);
-					EndPath(color, true);
-				}
+				// with a non uniform scale in a block it becomes an ellipse, approximated with lines by ArcTo
+				BeginPath();
+				ArcTo(t, cx, cy, r, 0, 2 * Math.PI, true);
+				EndPath(color, true);
 			}
 
 			private void DrawEllipse(DxfEntity e, Transform t, string color)
@@ -759,30 +736,33 @@ namespace LaserGRBL.SvgConverter
 			#region Path output
 
 			private void BeginPath()
-			{ mPath = new StringBuilder(); }
+			{ mPath = null; }
 
 			private void EndPath(string color, bool closed)
 			{
-				if (mPath.Length == 0) return;
-				if (closed) mPath.Append(" Z");
-				mBody.AppendFormat("<path d=\"{0}\" stroke=\"{1}\" fill=\"none\"/>\r\n", mPath.ToString().Trim(), color);
+				if (mPath == null || mPath.Segments.Count == 0)
+					return;
+				if (closed && VectorSegment.Distance(mPath.End, mPath.Start) > 1e-9)
+					mPath.Segments.Add(VectorSegment.Line(mPath.Start));
+				mPath.Color = color;
+				mPath.Closed = closed;
+				mDrawing.Paths.Add(mPath);
 				mPath = null;
 				mCount++;
 			}
 
-			private void MoveTo(Transform t, double x, double y)
+			// from local coordinates to the drawing: block transformations, then units to mm
+			private Point ToDrawing(Transform t, double x, double y)
 			{
 				double[] p = t.Apply(x, y);
-				mPath.AppendFormat(" M {0} {1}", Num(p[0]), Num(-p[1]));
-				Extend(p[0], p[1]);
+				return new Point(p[0] * mDoc.UnitToMM, p[1] * mDoc.UnitToMM);
 			}
 
+			private void MoveTo(Transform t, double x, double y)
+			{ mPath = new VectorPath(null, ToDrawing(t, x, y)); }
+
 			private void LineTo(Transform t, double x, double y)
-			{
-				double[] p = t.Apply(x, y);
-				mPath.AppendFormat(" L {0} {1}", Num(p[0]), Num(-p[1]));
-				Extend(p[0], p[1]);
-			}
+			{ mPath.Segments.Add(VectorSegment.Line(ToDrawing(t, x, y))); }
 
 			// circular arc in local coordinates, sweep in radians (positive = counterclockwise)
 			private void ArcTo(Transform t, double cx, double cy, double r, double start, double sweep, bool move)
@@ -793,20 +773,15 @@ namespace LaserGRBL.SvgConverter
 
 				if (t.IsSimilarity)
 				{
-					// svg arc commands, split in pieces of max 90 degrees so the arc flags are never ambiguous
-					double rw = r * t.Scale;
+					// a true arc (mirrored blocks invert the direction); a full circle in two halves, start and end must differ
 					bool ccw = (sweep > 0) ^ (t.Determinant < 0);
-					int pieces = Math.Max(1, (int)Math.Ceiling(Math.Abs(sweep) / (Math.PI / 2) - 1e-9));
+					Point center = ToDrawing(t, cx, cy);
+					int pieces = Math.Abs(sweep) > 2 * Math.PI - 1e-9 ? 2 : 1;
 					for (int i = 1; i <= pieces; i++)
 					{
 						double a = start + sweep * i / pieces;
-						double[] p = t.Apply(cx + r * Math.Cos(a), cy + r * Math.Sin(a));
-						// Y is flipped in the svg, so counterclockwise becomes a negative angle direction (sweep flag 0)
-						mPath.AppendFormat(" A {0} {0} 0 0 {1} {2} {3}", Num(rw), ccw ? 0 : 1, Num(p[0]), Num(-p[1]));
+						mPath.Segments.Add(VectorSegment.Arc(ToDrawing(t, cx + r * Math.Cos(a), cy + r * Math.Sin(a)), center, ccw));
 					}
-					double[] c = t.Apply(cx, cy);
-					double[] s = t.Apply(cx + r * Math.Cos(start), cy + r * Math.Sin(start));
-					ExtendArc(c[0], c[1], rw, Math.Atan2(s[1] - c[1], s[0] - c[0]), ccw ? Math.Abs(sweep) : -Math.Abs(sweep));
 				}
 				else
 				{
@@ -825,25 +800,6 @@ namespace LaserGRBL.SvgConverter
 				double step = radius > mTolerance ? 2 * Math.Acos(1 - mTolerance / radius) : Math.PI / 4;
 				return Math.Max(4, Math.Min(10000, (int)Math.Ceiling(sweep / Math.Min(step, Math.PI / 4))));
 			}
-
-			private void Extend(double x, double y)
-			{
-				mMinX = Math.Min(mMinX, x); mMaxX = Math.Max(mMaxX, x);
-				mMinY = Math.Min(mMinY, y); mMaxY = Math.Max(mMaxY, y);
-			}
-
-			// bounding box of an arc: the end points and the quadrant points inside the sweep
-			private void ExtendArc(double cx, double cy, double r, double start, double sweep)
-			{
-				Extend(cx + r * Math.Cos(start), cy + r * Math.Sin(start));
-				Extend(cx + r * Math.Cos(start + sweep), cy + r * Math.Sin(start + sweep));
-				double from = Math.Min(start, start + sweep), to = Math.Max(start, start + sweep);
-				for (double q = Math.Ceiling(from / (Math.PI / 2)) * (Math.PI / 2); q <= to; q += Math.PI / 2)
-					Extend(cx + r * Math.Cos(q), cy + r * Math.Sin(q));
-			}
-
-			private static string Num(double v)
-			{ return v.ToString("0.######", CultureInfo.InvariantCulture); }
 
 			#endregion
 		}

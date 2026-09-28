@@ -755,10 +755,10 @@ namespace LaserGRBL
 					try
 					{
 						Cursor.Current = Cursors.WaitCursor;
-						System.Xml.Linq.XElement svg = SvgConverter.DxfToSvg.Convert(filename);
+						SvgConverter.VectorDrawing drawing = SvgConverter.DxfReader.Read(filename);
 						Cursor.Current = Cursors.Default;
 
-						SvgConverter.SvgToGCodeForm.CreateAndShowDialog(this, filename, svg, append);
+						SvgConverter.SvgToGCodeForm.CreateAndShowDialog(this, filename, new SvgConverter.DxfImportSource(drawing), append);
 						UsageCounters.SvgFile++;
 					}
 					catch (SvgConverter.DxfImportException ex)
