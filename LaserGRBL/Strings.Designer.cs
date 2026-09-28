@@ -1334,5 +1334,23 @@ namespace LaserGRBL {
                 return ResourceManager.GetString("SvgPreviewFilling", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Splines to arcs, tolerance.
+        /// </summary>
+        internal static string SettingsSplineArcTolerance {
+            get {
+                return ResourceManager.GetString("SettingsSplineArcTolerance", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Curves of DXF files (SPLINE) are converted to arcs (G2/G3) that stay within this distance from the original curve: shorter gcode and smoother motion. Set 0 to keep the short straight segments..
+        /// </summary>
+        internal static string SettingsSplineArcToleranceInfo {
+            get {
+                return ResourceManager.GetString("SettingsSplineArcToleranceInfo", resourceCulture);
+            }
+        }
     }
 }
