@@ -558,4 +558,13 @@ Você quer reiniciar o LaserGRBL e alternar para renderização de software?</va
   <data name="SettingsSplineArcToleranceInfo" xml:space="preserve">
     <value>As curvas dos arquivos DXF (SPLINE) são convertidas em arcos (G2/G3) que ficam dentro desta distância da curva original: G-code menor e movimento mais suave. Use 0 para manter os segmentos retos curtos.</value>
   </data>
+  <data name="NewProjectConfirm" xml:space="preserve">
+    <value>Descartar o trabalho carregado e limpar a área de trabalho (arquivo, pré-visualização e log de comandos)?</value>
+  </data>
+  <data name="NewProjectTitle" xml:space="preserve">
+    <value>Novo</value>
+  </data>
+  <data name="NewProjectTT" xml:space="preserve">
+    <value>Novo (limpa o arquivo carregado, a pré-visualização e o log de comandos)</value>
+  </data>
 </root>
